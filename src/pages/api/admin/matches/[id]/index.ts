@@ -2,9 +2,9 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { cert, getApps, initializeApp } from 'firebase-admin/app'
 import { getAuth as getAdminAuth } from 'firebase-admin/auth'
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
+import { nanoid } from 'nanoid'
 import { z } from 'zod'
 import { validate } from '../../../../../lib/validate'
-import { nanoid } from 'nanoid'
 import serviceAccount from '../../../../../lib/serviceAccountKey.json'
 
 if (!getApps().length)
@@ -25,44 +25,28 @@ async function verifyAdmin(req: NextApiRequest): Promise<string> {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const actorUid = await verifyAdmin(req)
-    const uid      = req.query.uid as string
 
-    /* ───── PATCH  update role ───── */
-    if (req.method === 'PATCH') {
-      const { role } = validate(
-        z.object({ role: z.enum(['admin','user']) }),
-        req.body
-      )
-      await db.doc(`users/${uid}`).set({ role }, { merge: true })
-
-      await db.doc(`adminLogs/${nanoid()}`).set({
-        actorUid,
-        action: 'set_role',
-        target: { type:'user', id: uid },
-        after: { role },
-        at: FieldValue.serverTimestamp(),
-      })
-
-      return res.status(200).json({ uid, role })
+    if (req.method !== 'PATCH') {
+      res.setHeader('Allow', ['PATCH'])
+      return res.status(405).end()
     }
 
-    /* ───── DELETE  remove user ──── */
-    if (req.method === 'DELETE') {
-      await adminAuth.deleteUser(uid)
-      await db.doc(`users/${uid}`).delete()
+    const matchId = req.query.id as string
+    const { status } = validate(
+      z.object({ status: z.enum(['approved','rejected']) }),
+      req.body
+    )
 
-      await db.doc(`adminLogs/${nanoid()}`).set({
-        actorUid,
-        action: 'delete_user',
-        target: { type:'user', id: uid },
-        at: FieldValue.serverTimestamp(),
-      })
+    await db.doc(`matches/${matchId}`).set({ status }, { merge: true })
 
-      return res.status(204).end()
-    }
+    await db.doc(`adminLogs/${nanoid()}`).set({
+      actorUid,
+      target: { type:'match', id: matchId },
+      action: `match_${status}`,
+      at: FieldValue.serverTimestamp(),
+    })
 
-    res.setHeader('Allow', ['PATCH', 'DELETE'])
-    return res.status(405).end()
+    return res.status(200).json({ matchId, status })
   } catch (e:any) {
     return res.status(e.status || 500).json({ error: e.msg || e.message })
   }
