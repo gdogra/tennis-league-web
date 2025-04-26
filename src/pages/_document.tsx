@@ -1,3 +1,4 @@
+// src/pages/_document.tsx
 import Document, { Html, Head, Main, NextScript } from 'next/document'
 
 export default class MyDocument extends Document {
@@ -5,7 +6,9 @@ export default class MyDocument extends Document {
     return (
       <Html>
         <Head>
-          <link rel="manifest" href="/manifest.json" />
+          {process.env.NODE_ENV === 'production' && (
+            <link rel="manifest" href="/manifest.json" />
+          )}
           <meta name="theme-color" content="#1E3A8A" />
         </Head>
         <body>
@@ -16,3 +19,4 @@ export default class MyDocument extends Document {
     )
   }
 }
+

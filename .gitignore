@@ -1,4 +1,16 @@
+# --- Node / Next.js
 node_modules
 .next
 .env.local
+
+# --- Build artifacts
+dist
+coverage
+*.log
+
+# --- Firebase secrets
+src/lib/serviceAccountKey.json
+
+# --- OS junk
 .DS_Store
+
