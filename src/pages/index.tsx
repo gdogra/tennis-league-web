@@ -1,20 +1,38 @@
+"use client";
 // src/pages/index.tsx
+import Layout from "../components/Layout";
+import { useAuth } from "../contexts/AuthContext";
+import { useRouter } from "next/router";
+import { useEffect } from "react";
 
-import type { NextPage } from 'next'
-import Head from 'next/head'
-import Layout from '../components/Layout'
+export default function HomePage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
-const Home: NextPage = () => (
-  <Layout>
-    <Head>
-      <title>Tennis League</title>
-      <meta name="description" content="Tennis league schedule and matches" />
-    </Head>
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/auth/login");
+    }
+  }, [user, loading, router]);
 
-    <h1 className="text-2xl font-bold mb-4">Welcome to the Tennis League</h1>
-    <p>Upcoming matches and schedule will appear here.</p>
-  </Layout>
-)
+  if (loading) {
+    // VERY important: no Layout yet during loading
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
-export default Home
+  if (!user) {
+    // Also don't Layout when no user
+    return null;
+  }
 
+  return (
+    <Layout>
+      <h1 className="text-2xl font-bold">Welcome to the Tennis League</h1>
+      <p className="mt-2">Upcoming matches and schedule will appear here.</p>
+    </Layout>
+  );
+}

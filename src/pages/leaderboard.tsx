@@ -1,61 +1,62 @@
+"use client";
 // src/pages/leaderboard.tsx
-import { useEffect, useState } from 'react'
-import { collection, getDocs, query, where } from 'firebase/firestore'
-import { db } from '../lib/firebase'
-import Layout from '../components/Layout'
-import Link from 'next/link'
+import { useEffect, useState } from "react";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import Layout from "../components/Layout";
+import Link from "next/link";
 
 export default function LeaderboardPage() {
-  const [players, setPlayers] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [players, setPlayers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchLeaderboard() {
-      const userSnap = await getDocs(collection(db, 'users'))
-      const users: Record<string, any> = {}
+      const userSnap = await getDocs(collection(db, "users"));
+      const users: Record<string, any> = {};
       userSnap.forEach((doc) => {
-        users[doc.id] = { id: doc.id, ...doc.data(), wins: 0, losses: 0 }
-      })
+        users[doc.id] = { id: doc.id, ...doc.data(), wins: 0, losses: 0 };
+      });
 
       const matchSnap = await getDocs(
-        query(collection(db, 'matches'), where('status', '==', 'approved'))
-      )
+        query(collection(db, "matches"), where("status", "==", "approved")),
+      );
       matchSnap.forEach((doc) => {
-        const match = doc.data()
-        if (!match.winnerId) return
+        const match = doc.data();
+        if (!match.winnerId) return;
 
         if (users[match.player1Id] && users[match.player2Id]) {
           if (match.winnerId === match.player1Id) {
-            users[match.player1Id].wins++
-            users[match.player2Id].losses++
+            users[match.player1Id].wins++;
+            users[match.player2Id].losses++;
           } else {
-            users[match.player2Id].wins++
-            users[match.player1Id].losses++
+            users[match.player2Id].wins++;
+            users[match.player1Id].losses++;
           }
         }
-      })
+      });
 
       const sorted = Object.values(users)
-        .filter(u => u.displayName)
-        .map(u => ({
+        .filter((u) => u.displayName)
+        .map((u) => ({
           ...u,
-          points: u.wins * 3 + u.losses * 1
+          points: u.wins * 3 + u.losses * 1,
         }))
-        .sort((a, b) => b.points - a.points)
+        .sort((a, b) => b.points - a.points);
 
-      setPlayers(sorted)
-      setLoading(false)
+      setPlayers(sorted);
+      setLoading(false);
     }
 
-    fetchLeaderboard()
-  }, [])
+    fetchLeaderboard();
+  }, []);
 
   const getMedal = (idx: number) => {
-    if (idx === 0) return '🥇'
-    if (idx === 1) return '🥈'
-    if (idx === 2) return '🥉'
-    return idx + 1
-  }
+    if (idx === 0) return "🥇";
+    if (idx === 1) return "🥈";
+    if (idx === 2) return "🥉";
+    return idx + 1;
+  };
 
   return (
     <Layout>
@@ -80,7 +81,10 @@ export default function LeaderboardPage() {
                 <tr key={player.id} className="border-t">
                   <td className="p-3">{getMedal(idx)}</td>
                   <td className="p-3">
-                    <Link href={`/profile/${player.id}`} className="text-blue-600 hover:underline">
+                    <Link
+                      href={`/profile/${player.id}`}
+                      className="text-blue-600 hover:underline"
+                    >
                       {player.displayName || player.email}
                     </Link>
                   </td>
@@ -94,6 +98,5 @@ export default function LeaderboardPage() {
         </div>
       )}
     </Layout>
-  )
+  );
 }
-

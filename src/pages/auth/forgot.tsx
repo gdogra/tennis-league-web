@@ -1,82 +1,75 @@
-// src/pages/auth/forgot.tsx
-
-import { useState, FormEvent } from 'react'
-import { useRouter } from 'next/router'
-import Head from 'next/head'
-import Layout from '../../components/Layout'
-import { auth } from '../../lib/firebase'
-import { sendPasswordResetEmail } from 'firebase/auth'
-import { useToast } from '../../contexts/ToastContext'
+import { useState, FormEvent } from "react";
+import { useRouter } from "next/router";
+import Head from "next/head";
+import Layout from "../../components/Layout";
+import { auth } from "../../lib/firebase";
+import { sendPasswordResetEmail } from "firebase/auth";
 
 export default function ForgotPasswordPage() {
-  const router = useRouter()
-  const toast = useToast()
-
-  const [email, setEmail] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setSubmitting(true)
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
     try {
-      await sendPasswordResetEmail(auth, email)
-      toast({ msg: 'Password reset email sent!', type: 'success' })
-      router.push('/auth/login')
+      await sendPasswordResetEmail(auth, email);
+      setSuccess(true);
     } catch (err: any) {
-      console.error(err)
-      if (err.code === 'auth/user-not-found') {
-        setError('No user found with that email.')
-      } else {
-        setError(err.message || 'Failed to send reset email.')
-      }
-      toast({ msg: err.message || 'Failed to send reset email.', type: 'error' })
+      setError(err.message || "Failed to send reset email.");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   return (
     <Layout>
       <Head>
-        <title>Reset Password — Tennis League</title>
+        <title>Forgot Password — Tennis League</title>
       </Head>
 
-      <div className="max-w-md mx-auto p-6 bg-white rounded shadow mt-8 space-y-4">
-        <h1 className="text-2xl font-bold">Reset Password</h1>
+      <div className="max-w-md mx-auto mt-12 space-y-6 p-6 bg-white rounded shadow">
+        <h1 className="text-2xl font-bold text-center">Forgot Password</h1>
 
-        {error && <div className="text-red-600">{error}</div>}
+        {error && <p className="text-red-500">{error}</p>}
+        {success && (
+          <p className="text-green-600">
+            Check your email for reset instructions.
+          </p>
+        )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <label className="block">
-            <span className="font-medium">Email</span>
+        {!success && (
+          <form onSubmit={handleSubmit} className="space-y-4">
             <input
               type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
+              placeholder="Enter your email"
               required
-              className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-2 border rounded"
             />
-          </label>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-          >
-            {submitting ? 'Sending...' : 'Send Reset Email'}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+            >
+              {submitting ? "Sending..." : "Send Reset Link"}
+            </button>
+          </form>
+        )}
 
-        <p className="mt-4 text-center">
-          Remembered your password?{' '}
+        <p className="text-center text-sm mt-4">
+          Remember your password?{" "}
           <a href="/auth/login" className="text-blue-600 hover:underline">
             Log in
           </a>
         </p>
       </div>
     </Layout>
-  )
+  );
 }
-

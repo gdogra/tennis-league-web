@@ -1,66 +1,73 @@
+"use client";
 // src/pages/matches/[id].tsx
-import { useRouter } from 'next/router'
-import { useEffect, useState } from 'react'
-import { db } from '../../lib/firebase'
-import { doc, getDoc, updateDoc } from 'firebase/firestore'
-import Layout from '../../components/Layout'
-import Link from 'next/link'
-import { useAuth } from '../../contexts/AuthContext'
-import dayjs from 'dayjs'
+import { useRouter } from "next/router";
+import { useEffect, useState } from "react";
+import { db } from "../../lib/firebase";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import Layout from "../../components/Layout";
+import Link from "next/link";
+import { useAuth } from "../../contexts/AuthContext";
+import dayjs from "dayjs";
 
 export default function MatchDetailPage() {
-  const router = useRouter()
-  const { id } = router.query
-  const { currentUser } = useAuth()
+  const router = useRouter();
+  const { id } = router.query;
+  const { currentUser } = useAuth();
 
-  const [match, setMatch] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [score, setScore] = useState('')
-  const [reporting, setReporting] = useState(false)
+  const [match, setMatch] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [score, setScore] = useState("");
+  const [reporting, setReporting] = useState(false);
 
   useEffect(() => {
-    if (!id) return
+    if (!id) return;
 
     async function fetchMatch() {
-      const snap = await getDoc(doc(db, 'matches', id as string))
+      const snap = await getDoc(doc(db, "matches", id as string));
       if (snap.exists()) {
-        setMatch({ id: snap.id, ...snap.data() })
+        setMatch({ id: snap.id, ...snap.data() });
       }
-      setLoading(false)
+      setLoading(false);
     }
 
-    fetchMatch()
-  }, [id])
+    fetchMatch();
+  }, [id]);
 
   async function submitScore() {
-    if (!currentUser || !match) return
-    if (!score) return alert('Please enter the score!')
+    if (!currentUser || !match) return;
+    if (!score) return alert("Please enter the score!");
 
-    const winnerId = window.confirm(`Did you win the match? OK = Yes, Cancel = No`) 
+    const winnerId = window.confirm(
+      `Did you win the match? OK = Yes, Cancel = No`,
+    )
       ? currentUser.uid
-      : (currentUser.uid === match.player1Id ? match.player2Id : match.player1Id)
+      : currentUser.uid === match.player1Id
+        ? match.player2Id
+        : match.player1Id;
 
-    await updateDoc(doc(db, 'matches', id as string), {
-      status: 'completed',
+    await updateDoc(doc(db, "matches", id as string), {
+      status: "completed",
       winnerId,
       score,
-    })
+    });
 
-    alert('✅ Score reported successfully!')
-    router.push('/matches')
+    alert("✅ Score reported successfully!");
+    router.push("/matches");
   }
 
-  if (loading) return (
-    <Layout>
-      <p>Loading match…</p>
-    </Layout>
-  )
+  if (loading)
+    return (
+      <Layout>
+        <p>Loading match…</p>
+      </Layout>
+    );
 
-  if (!match) return (
-    <Layout>
-      <p>Match not found.</p>
-    </Layout>
-  )
+  if (!match)
+    return (
+      <Layout>
+        <p>Match not found.</p>
+      </Layout>
+    );
 
   return (
     <Layout>
@@ -69,14 +76,20 @@ export default function MatchDetailPage() {
       <div className="bg-white rounded shadow p-6 space-y-4 max-w-2xl">
         <div>
           <p className="text-gray-600">Player 1:</p>
-          <Link href={`/profile/${match.player1Id}`} className="text-lg font-semibold text-blue-600 hover:underline">
+          <Link
+            href={`/profile/${match.player1Id}`}
+            className="text-lg font-semibold text-blue-600 hover:underline"
+          >
             {match.player1Name || match.player1Id}
           </Link>
         </div>
 
         <div>
           <p className="text-gray-600">Player 2:</p>
-          <Link href={`/profile/${match.player2Id}`} className="text-lg font-semibold text-blue-600 hover:underline">
+          <Link
+            href={`/profile/${match.player2Id}`}
+            className="text-lg font-semibold text-blue-600 hover:underline"
+          >
             {match.player2Name || match.player2Id}
           </Link>
         </div>
@@ -90,7 +103,9 @@ export default function MatchDetailPage() {
           <div>
             <p className="text-gray-600">Winner:</p>
             <p className="text-lg font-bold text-green-600">
-              {match.winnerId === match.player1Id ? match.player1Name : match.player2Name}
+              {match.winnerId === match.player1Id
+                ? match.player1Name
+                : match.player2Name}
             </p>
           </div>
         )}
@@ -113,13 +128,17 @@ export default function MatchDetailPage() {
           <div>
             <p className="text-gray-600">Created:</p>
             <p className="text-sm text-gray-500">
-              {dayjs(match.createdAt.toDate ? match.createdAt.toDate() : match.createdAt).format('MMM D, YYYY h:mm A')}
+              {dayjs(
+                match.createdAt.toDate
+                  ? match.createdAt.toDate()
+                  : match.createdAt,
+              ).format("MMM D, YYYY h:mm A")}
             </p>
           </div>
         )}
 
         {/* Report score section */}
-        {match.status === 'approved' && (
+        {match.status === "approved" && (
           <div className="mt-6 space-y-3">
             {!reporting ? (
               <button
@@ -149,6 +168,5 @@ export default function MatchDetailPage() {
         )}
       </div>
     </Layout>
-  )
+  );
 }
-

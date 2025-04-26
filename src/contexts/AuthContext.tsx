@@ -1,66 +1,55 @@
+"use client";
 // src/contexts/AuthContext.tsx
-import { createContext, useContext, useEffect, useState } from 'react'
-import { auth, db } from '../lib/firebase'
-import { onAuthStateChanged } from 'firebase/auth'
-import { doc, getDoc, onSnapshot, collection, query, where } from 'firebase/firestore'
 
-const AuthContext = createContext<any>(null)
+import { createContext, useContext, useEffect, useState } from "react";
+import { onAuthStateChanged, getIdToken, signOut } from "firebase/auth";
+import { auth } from "../lib/firebase";
+import { useRouter } from "next/router";
+
+const AuthContext = createContext<any>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<any>(null)
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false)
+  const [user, setUser] = useState<any>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setCurrentUser(firebaseUser)
+      console.log("[AuthStateChanged]", firebaseUser);
       if (firebaseUser) {
-        const refDoc = doc(db, 'users', firebaseUser.uid)
-        const snap = await getDoc(refDoc)
-        const profile = snap.data()
-
-        if (profile) {
-          setUser({ ...firebaseUser, ...profile })
-          setIsAdmin(profile.role === 'admin')
-        }
+        const token = await getIdToken(firebaseUser);
+        setUser(firebaseUser);
+        setToken(token);
       } else {
-        setUser(null)
-        setIsAdmin(false)
+        setUser(null);
+        setToken(null);
       }
-      setLoading(false)
-    })
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
-    return () => unsubscribe()
-  }, [])
+  const logout = async () => {
+    await signOut(auth);
+    setUser(null);
+    setToken(null);
+    router.push("/auth/login"); // <--- Optional hard redirect after logout
+  };
 
-  useEffect(() => {
-    if (!currentUser) return
-
-    const q = query(
-      collection(db, 'notifications'),
-      where('userId', '==', currentUser.uid),
-      where('read', '==', false)
-    )
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setHasUnreadNotifications(!snapshot.empty)
-    })
-
-    return () => unsubscribe()
-  }, [currentUser])
-
-  const logout = () => auth.signOut()
+  const isAdmin = user?.email && user?.email.endsWith("@example.com"); // Adjust your logic here
 
   return (
-    <AuthContext.Provider value={{ user, currentUser, isAdmin, logout, hasUnreadNotifications }}>
-      {!loading && children}
+    <AuthContext.Provider value={{ user, token, isAdmin, loading, logout }}>
+      {children}
     </AuthContext.Provider>
-  )
+  );
 }
 
 export function useAuth() {
-  return useContext(AuthContext)
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return ctx;
 }
-

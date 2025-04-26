@@ -1,58 +1,48 @@
-import { createContext, useContext, useState, ReactNode } from 'react'
+"use client";
 
-type Toast = { id: number; msg: string; type: 'success' | 'error' }
-const ToastCtx = createContext<(t: Omit<Toast, 'id'>) => void>(() => {})
+import { createContext, useContext, useState, ReactNode } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+
+type Toast = { msg: string; type: "success" | "error" };
+
+const ToastContext = createContext<(toast: Toast) => void>(() => {});
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [list, set] = useState<Toast[]>([])
-  const push = (t: Omit<Toast, 'id'>) =>
-    set(l => [...l, { ...t, id: Date.now() }])
-  const remove = (id: number) => set(l => l.filter(t => t.id !== id))
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const addToast = (toast: Toast) => {
+    setToasts((prev) => [...prev, toast]);
+    setTimeout(() => {
+      setToasts((prev) => prev.slice(1));
+    }, 3000);
+  };
 
   return (
-    <ToastCtx.Provider value={push}>
+    <ToastContext.Provider value={addToast}>
       {children}
-      {/* container */}
-      <div className="fixed bottom-4 right-4 space-y-2 z-50">
-        {list.map(t => (
-          <ToastItem key={t.id} {...t} onDone={() => remove(t.id)} />
-        ))}
+
+      {/* Toast container */}
+      <div className="fixed bottom-5 right-5 space-y-2 z-50">
+        <AnimatePresence>
+          {toasts.map((toast, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, translateY: 20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              exit={{ opacity: 0, translateY: 20 }}
+              className={`px-4 py-2 rounded shadow text-white ${
+                toast.type === "success" ? "bg-green-500" : "bg-red-500"
+              }`}
+            >
+              {toast.msg}
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
-    </ToastCtx.Provider>
-  )
+    </ToastContext.Provider>
+  );
 }
 
-export const useToast = () => useContext(ToastCtx)
-
-import { Transition } from '@headlessui/react'
-import { useEffect, Fragment } from 'react'
-function ToastItem({
-  id, msg, type, onDone,
-}: Toast & { onDone: () => void }) {
-  useEffect(() => {
-    const h = setTimeout(onDone, 3000)
-    return () => clearTimeout(h)
-  }, [id])
-  return (
-    <Transition
-      appear
-      as={Fragment}
-      show
-      enter="transition ease-out duration-100"
-      enterFrom="translate-y-4 opacity-0"
-      enterTo="translate-y-0 opacity-100"
-      leave="transition ease-in duration-150"
-      leaveFrom="opacity-100"
-      leaveTo="opacity-0"
-    >
-      <div
-        className={`px-4 py-2 rounded shadow text-white ${
-          type === 'success' ? 'bg-green-600' : 'bg-red-600'
-        }`}
-      >
-        {msg}
-      </div>
-    </Transition>
-  )
+export function useToast() {
+  return useContext(ToastContext);
 }
-

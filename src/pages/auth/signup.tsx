@@ -1,162 +1,656 @@
+"use client";
 // src/pages/auth/signup.tsx
-
-import { useState, useEffect, FormEvent } from 'react'
-import { useRouter } from 'next/router'
-import Head from 'next/head'
-import Layout from '../../components/Layout'
-import { auth, db } from '../../lib/firebase'
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'
-import { doc, setDoc } from 'firebase/firestore'
-import { useAuth } from '../../contexts/AuthContext'
-import { useToast } from '../../contexts/ToastContext'
+import { useState, FormEvent, useEffect } from "react";
+import { useRouter } from "next/router";
+import AuthLayout from "../../components/AuthLayout";
+import { auth, db } from "../../lib/firebase";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function SignupPage() {
-  const router = useRouter()
-  const { user, loading } = useAuth()
-  const toast = useToast()
+  const router = useRouter();
+  const { user, loading } = useAuth();
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [displayName, setDisplayName] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!loading && user) {
-      router.replace('/')
+      router.replace("/");
     }
-  }, [user, loading, router])
+  }, [user, loading, router]);
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="text-center py-20">Loading…</div>
-      </Layout>
-    )
-  }
-
-  if (user) {
-    return null
-  }
+  if (loading) return null;
+  if (user) return null;
 
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    setError(null)
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.')
-      return
+    e.preventDefault();
+    setError(null);
+    if (password !== confirm) {
+      setError("Passwords don't match");
+      return;
     }
+    setSubmitting(true);
 
-    setSubmitting(true)
     try {
-      // Create the Firebase Auth user
-      const cred = await createUserWithEmailAndPassword(auth, email, password)
-
-      // Update displayName in Auth profile
-      if (displayName) {
-        await updateProfile(cred.user, { displayName })
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      if (cred.user) {
+        // update display name
+        await updateProfile(cred.user, { displayName });
+        // create Firestore profile
+        await setDoc(
+          doc(db, "users", cred.user.uid),
+          {
+            email,
+            displayName,
+            role: "user",
+            createdAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+        router.push("/");
       }
-
-      // Create Firestore user profile
-      await setDoc(doc(db, 'users', cred.user.uid), {
-        email,
-        displayName,
-        role: 'user',
-        createdAt: new Date(),
-      })
-
-      toast({ msg: 'Account created!', type: 'success' })
-      router.push('/profile')
     } catch (err: any) {
-      console.error(err)
-      if (err.code === 'auth/email-already-in-use') {
-        setError('Email already in use.')
-      } else if (err.code === 'auth/weak-password') {
-        setError('Password should be at least 6 characters.')
-      } else {
-        setError(err.message || 'Sign up failed.')
-      }
-      toast({ msg: err.message || 'Sign up failed', type: 'error' })
+      setError(err.message);
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   return (
-    <Layout>
-      <Head>
-        <title>Sign Up — Tennis League</title>
-      </Head>
+    <AuthLayout title="Sign Up">
+      <h1 className="text-2xl font-bold mb-4">Sign Up</h1>
+      {error && <div className="text-red-600 mb-4">{error}</div>}
 
-      <div className="max-w-md mx-auto p-6 bg-white rounded shadow mt-8 space-y-4">
-        <h1 className="text-2xl font-bold">Sign Up</h1>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <label className="block">
+          <span className="font-medium">Email</span>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
 
-        {error && <div className="text-red-600">{error}</div>}
+        <label className="block">
+          <span className="font-medium">Display Name</span>
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <label className="block">
-            <span className="font-medium">Display Name</span>
-            <input
-              type="text"
-              value={displayName}
-              onChange={e => setDisplayName(e.target.value)}
-              required
-              className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
-            />
-          </label>
+        <label className="block">
+          <span className="font-medium">Password</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
 
-          <label className="block">
-            <span className="font-medium">Email</span>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
-            />
-          </label>
+        <label className="block">
+          <span className="font-medium">Confirm Password</span>
+          <input
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
 
-          <label className="block">
-            <span className="font-medium">Password</span>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
-            />
-          </label>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50"
+        >
+          {submitting ? "Signing up…" : "Sign Up"}
+        </button>
+      </form>
 
-          <label className="block">
-            <span className="font-medium">Confirm Password</span>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
-              required
-              className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
-            />
-          </label>
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-          >
-            {submitting ? 'Signing up…' : 'Sign Up'}
-          </button>
-        </form>
-
-        <p className="mt-4 text-center">
-          Already have an account?{' '}
-          <a href="/auth/login" className="text-blue-600 hover:underline">
-            Log in
-          </a>
-        </p>
-      </div>
-    </Layout>
-  )
+      <p className="mt-4 text-center text-sm">
+        Already have an account?{" "}
+        <a href="/auth/login" className="text-blue-600 hover:underline">
+          Log in
+        </a>
+      </p>
+    </AuthLayout>
+  );
 }
+// src/pages/auth/signup.tsx
+import { useState, FormEvent, useEffect } from "react";
+import { useRouter } from "next/router";
+import AuthLayout from "../../components/AuthLayout";
+import { auth, db } from "../../lib/firebase";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { useAuth } from "../../contexts/AuthContext";
 
+export default function SignupPage() {
+  const router = useRouter();
+  const { user, loading } = useAuth();
+
+  const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace("/");
+    }
+  }, [user, loading, router]);
+
+  if (loading) return null;
+  if (user) return null;
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (password !== confirm) {
+      setError("Passwords don't match");
+      return;
+    }
+    setSubmitting(true);
+
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      if (cred.user) {
+        // update display name
+        await updateProfile(cred.user, { displayName });
+        // create Firestore profile
+        await setDoc(
+          doc(db, "users", cred.user.uid),
+          {
+            email,
+            displayName,
+            role: "user",
+            createdAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+        router.push("/");
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <AuthLayout title="Sign Up">
+      <h1 className="text-2xl font-bold mb-4">Sign Up</h1>
+      {error && <div className="text-red-600 mb-4">{error}</div>}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <label className="block">
+          <span className="font-medium">Email</span>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
+
+        <label className="block">
+          <span className="font-medium">Display Name</span>
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
+
+        <label className="block">
+          <span className="font-medium">Password</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
+
+        <label className="block">
+          <span className="font-medium">Confirm Password</span>
+          <input
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50"
+        >
+          {submitting ? "Signing up…" : "Sign Up"}
+        </button>
+      </form>
+
+      <p className="mt-4 text-center text-sm">
+        Already have an account?{" "}
+        <a href="/auth/login" className="text-blue-600 hover:underline">
+          Log in
+        </a>
+      </p>
+    </AuthLayout>
+  );
+}
+// src/pages/auth/signup.tsx
+import { useState, FormEvent, useEffect } from "react";
+import { useRouter } from "next/router";
+import AuthLayout from "../../components/AuthLayout";
+import { auth, db } from "../../lib/firebase";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { useAuth } from "../../contexts/AuthContext";
+
+export default function SignupPage() {
+  const router = useRouter();
+  const { user, loading } = useAuth();
+
+  const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace("/");
+    }
+  }, [user, loading, router]);
+
+  if (loading) return null;
+  if (user) return null;
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (password !== confirm) {
+      setError("Passwords don't match");
+      return;
+    }
+    setSubmitting(true);
+
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      if (cred.user) {
+        // update display name
+        await updateProfile(cred.user, { displayName });
+        // create Firestore profile
+        await setDoc(
+          doc(db, "users", cred.user.uid),
+          {
+            email,
+            displayName,
+            role: "user",
+            createdAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+        router.push("/");
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <AuthLayout title="Sign Up">
+      <h1 className="text-2xl font-bold mb-4">Sign Up</h1>
+      {error && <div className="text-red-600 mb-4">{error}</div>}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <label className="block">
+          <span className="font-medium">Email</span>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
+
+        <label className="block">
+          <span className="font-medium">Display Name</span>
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
+
+        <label className="block">
+          <span className="font-medium">Password</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
+
+        <label className="block">
+          <span className="font-medium">Confirm Password</span>
+          <input
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50"
+        >
+          {submitting ? "Signing up…" : "Sign Up"}
+        </button>
+      </form>
+
+      <p className="mt-4 text-center text-sm">
+        Already have an account?{" "}
+        <a href="/auth/login" className="text-blue-600 hover:underline">
+          Log in
+        </a>
+      </p>
+    </AuthLayout>
+  );
+}
+// src/pages/auth/signup.tsx
+import { useState, FormEvent, useEffect } from "react";
+import { useRouter } from "next/router";
+import AuthLayout from "../../components/AuthLayout";
+import { auth, db } from "../../lib/firebase";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { useAuth } from "../../contexts/AuthContext";
+
+export default function SignupPage() {
+  const router = useRouter();
+  const { user, loading } = useAuth();
+
+  const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace("/");
+    }
+  }, [user, loading, router]);
+
+  if (loading) return null;
+  if (user) return null;
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (password !== confirm) {
+      setError("Passwords don't match");
+      return;
+    }
+    setSubmitting(true);
+
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      if (cred.user) {
+        // update display name
+        await updateProfile(cred.user, { displayName });
+        // create Firestore profile
+        await setDoc(
+          doc(db, "users", cred.user.uid),
+          {
+            email,
+            displayName,
+            role: "user",
+            createdAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+        router.push("/");
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <AuthLayout title="Sign Up">
+      <h1 className="text-2xl font-bold mb-4">Sign Up</h1>
+      {error && <div className="text-red-600 mb-4">{error}</div>}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <label className="block">
+          <span className="font-medium">Email</span>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
+
+        <label className="block">
+          <span className="font-medium">Display Name</span>
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
+
+        <label className="block">
+          <span className="font-medium">Password</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
+
+        <label className="block">
+          <span className="font-medium">Confirm Password</span>
+          <input
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50"
+        >
+          {submitting ? "Signing up…" : "Sign Up"}
+        </button>
+      </form>
+
+      <p className="mt-4 text-center text-sm">
+        Already have an account?{" "}
+        <a href="/auth/login" className="text-blue-600 hover:underline">
+          Log in
+        </a>
+      </p>
+    </AuthLayout>
+  );
+}
+// src/pages/auth/signup.tsx
+import { useState, FormEvent, useEffect } from "react";
+import { useRouter } from "next/router";
+import AuthLayout from "../../components/AuthLayout";
+import { auth, db } from "../../lib/firebase";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { useAuth } from "../../contexts/AuthContext";
+
+export default function SignupPage() {
+  const router = useRouter();
+  const { user, loading } = useAuth();
+
+  const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace("/");
+    }
+  }, [user, loading, router]);
+
+  if (loading) return null;
+  if (user) return null;
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (password !== confirm) {
+      setError("Passwords don't match");
+      return;
+    }
+    setSubmitting(true);
+
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      if (cred.user) {
+        // update display name
+        await updateProfile(cred.user, { displayName });
+        // create Firestore profile
+        await setDoc(
+          doc(db, "users", cred.user.uid),
+          {
+            email,
+            displayName,
+            role: "user",
+            createdAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+        router.push("/");
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <AuthLayout title="Sign Up">
+      <h1 className="text-2xl font-bold mb-4">Sign Up</h1>
+      {error && <div className="text-red-600 mb-4">{error}</div>}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <label className="block">
+          <span className="font-medium">Email</span>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
+
+        <label className="block">
+          <span className="font-medium">Display Name</span>
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
+
+        <label className="block">
+          <span className="font-medium">Password</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
+
+        <label className="block">
+          <span className="font-medium">Confirm Password</span>
+          <input
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+            className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+          />
+        </label>
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50"
+        >
+          {submitting ? "Signing up…" : "Sign Up"}
+        </button>
+      </form>
+
+      <p className="mt-4 text-center text-sm">
+        Already have an account?{" "}
+        <a href="/auth/login" className="text-blue-600 hover:underline">
+          Log in
+        </a>
+      </p>
+    </AuthLayout>
+  );
+}
