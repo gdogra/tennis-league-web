@@ -1,23 +1,24 @@
 // src/pages/_app.tsx
 import type { AppProps } from 'next/app'
-import { QueryClient, QueryClientProvider } from 'react-query'
 import { useState } from 'react'
+import { QueryClient, QueryClientProvider } from 'react-query'
+
+import { AuthProvider } from '../contexts/AuthContext'   // ← ensure path exists
 import { ToastProvider } from '../contexts/ToastContext'
 
-import '../styles/globals.css'          // Tailwind base styles
+import '../styles/globals.css'
 
-function MyApp({ Component, pageProps }: AppProps) {
-  // ensure QueryClient is created only once per browser tab
+export default function MyApp({ Component, pageProps }: AppProps) {
   const [client] = useState(() => new QueryClient())
 
   return (
     <QueryClientProvider client={client}>
-      <ToastProvider>
-        <Component {...pageProps} />
-      </ToastProvider>
+      <AuthProvider>              {/*  ✅ put this back */}
+        <ToastProvider>
+          <Component {...pageProps} />
+        </ToastProvider>
+      </AuthProvider>
     </QueryClientProvider>
   )
 }
-
-export default MyApp
 

@@ -1,73 +1,47 @@
-/**
- * scripts/seedSampleData.js
- *
- * Seeds Auth + Firestore so you can demo:
- *  ▸ User Management tab
- *  ▸ Match Approvals tab
- */
+// scripts/seedSampleData.js
+const { initializeApp, cert } = require('firebase-admin/app')
+const { getFirestore } = require('firebase-admin/firestore')
+const serviceAccount = require('../src/lib/serviceAccountKey.json')
 
-const { initializeApp, cert }  = require('firebase-admin/app')
-const { getAuth }              = require('firebase-admin/auth')
-const { getFirestore }         = require('firebase-admin/firestore')
-const serviceAccount           = require('../src/lib/serviceAccountKey.json')
+initializeApp({
+  credential: cert(serviceAccount),
+})
 
-initializeApp({ credential: cert(serviceAccount) })
-const adminAuth = getAuth()
-const db        = getFirestore()
+const db = getFirestore()
 
-// ───────────────────────── helpers ──────────────────────────
-async function upsertUser({ email, displayName, password, role }) {
-  let userRec
-  try { userRec = await adminAuth.getUserByEmail(email) }
-  catch { userRec = await adminAuth.createUser({ email, displayName, password }) }
-
-  await db.doc(`users/${userRec.uid}`).set({
-    email,
-    displayName,
-    role,
-    createdAt: new Date(),
-  }, { merge: true })
-
-  console.log(`✅ user ${email} (${role}) uid=${userRec.uid}`)
-  return userRec
-}
-
-async function seed() {
-  // 1) Users
-  const admin  = await upsertUser({
-    email: 'admin@example.com',  displayName: 'Site Admin',
-    password: 'Admin#123',       role: 'admin',
-  })
-  const p1     = await upsertUser({
-    email: 'player1@example.com',displayName: 'Player One',
-    password: 'Player1#123',     role: 'user',
-  })
-  const p2     = await upsertUser({
-    email: 'player2@example.com',displayName: 'Player Two',
-    password: 'Player2#123',     role: 'user',
-  })
-
-  // 2) Matches (3 pending matches)
+async function seedMatches() {
   const matches = [
-    { playerA: p1.email, playerB: p2.email, whenHours: 24 },
-    { playerA: p2.email, playerB: p1.email, whenHours: 48 },
-    { playerA: p1.email, playerB: 'guest@example.com', whenHours: 72 },
-  ]
-  for (const m of matches) {
-    await db.collection('matches').add({
-      playerA: m.playerA,
-      playerB: m.playerB,
-      scheduledAt: new Date(Date.now() + m.whenHours*60*60*1000).toISOString(),
+    {
+      player1Id: 'USERID_1',     // <-- replace with real UID
+      player1Name: 'John Doe',
+      player2Id: 'USERID_2',
+      player2Name: 'Jane Smith',
+      playerIds: ['USERID_1', 'USERID_2'],   // 🔥 array-contains search
+      score: null,                // No score yet
       status: 'pending',
       createdAt: new Date(),
-    })
+    },
+    {
+      player1Id: 'USERID_2',
+      player1Name: 'Jane Smith',
+      player2Id: 'USERID_3',
+      player2Name: 'Mike Johnson',
+      playerIds: ['USERID_2', 'USERID_3'],
+      score: '6-4, 7-5',
+      status: 'approved',
+      createdAt: new Date(),
+    }
+  ]
+
+  for (const match of matches) {
+    const ref = db.collection('matches').doc()
+    await ref.set(match)
+    console.log('✅ Seeded match:', ref.id)
   }
-  console.log(`✅ seeded ${matches.length} pending matches`)
 }
 
-seed().then(()=>{
-  console.log('All done ✨'); process.exit(0)
-}).catch(e=>{
-  console.error('❌', e); process.exit(1)
+seedMatches().catch((err) => {
+  console.error('❌ Error seeding matches:', err)
+  process.exit(1)
 })
 
