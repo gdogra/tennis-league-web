@@ -38,7 +38,6 @@ export default function LoginPage() {
     )
   }
 
-  // If already signed in, do not render the form (redirect is in-flight)
   if (user) {
     return null
   }
@@ -135,6 +134,14 @@ export default function LoginPage() {
           </button>
         </form>
 
+        {/* Forgot Password */}
+        <p className="mt-2 text-center">
+          <a href="/auth/forgot" className="text-blue-600 hover:underline">
+            Forgot Password?
+          </a>
+        </p>
+
+        {/* Sign Up */}
         <p className="mt-4 text-center">
           Don’t have an account?{' '}
           <a href="/auth/signup" className="text-blue-600 hover:underline">

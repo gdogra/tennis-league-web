@@ -1,28 +1,27 @@
 // src/pages/auth/signup.tsx
 
-import { useEffect, useState, FormEvent } from 'react'
+import { useState, useEffect, FormEvent } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Layout from '../../components/Layout'
-import { auth } from '../../lib/firebase'
-import {
-  createUserWithEmailAndPassword,
-  updateProfile,
-} from 'firebase/auth'
-import { createUserProfile } from '../../lib/firestore'
+import { auth, db } from '../../lib/firebase'
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'
+import { doc, setDoc } from 'firebase/firestore'
 import { useAuth } from '../../contexts/AuthContext'
+import { useToast } from '../../contexts/ToastContext'
 
 export default function SignupPage() {
   const router = useRouter()
   const { user, loading } = useAuth()
+  const toast = useToast()
 
   const [email, setEmail] = useState('')
-  const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string|null>(null)
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  // If already signed in, go home
   useEffect(() => {
     if (!loading && user) {
       router.replace('/')
@@ -36,23 +35,50 @@ export default function SignupPage() {
       </Layout>
     )
   }
-  if (user) return null
+
+  if (user) {
+    return null
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+
     setSubmitting(true)
     try {
-      // 1) Create auth user
+      // Create the Firebase Auth user
       const cred = await createUserWithEmailAndPassword(auth, email, password)
-      // 2) Optionally set their displayName on the Auth user
-      if (displayName) await updateProfile(cred.user, { displayName })
-      // 3) Mirror to Firestore under /users
-      await createUserProfile(cred.user.uid, cred.user.email!, displayName)
-      // 4) Send them to login to sign in
-      router.push('/auth/login')
+
+      // Update displayName in Auth profile
+      if (displayName) {
+        await updateProfile(cred.user, { displayName })
+      }
+
+      // Create Firestore user profile
+      await setDoc(doc(db, 'users', cred.user.uid), {
+        email,
+        displayName,
+        role: 'user',
+        createdAt: new Date(),
+      })
+
+      toast({ msg: 'Account created!', type: 'success' })
+      router.push('/profile')
     } catch (err: any) {
-      setError(err.message || 'Signup failed')
+      console.error(err)
+      if (err.code === 'auth/email-already-in-use') {
+        setError('Email already in use.')
+      } else if (err.code === 'auth/weak-password') {
+        setError('Password should be at least 6 characters.')
+      } else {
+        setError(err.message || 'Sign up failed.')
+      }
+      toast({ msg: err.message || 'Sign up failed', type: 'error' })
     } finally {
       setSubmitting(false)
     }
@@ -60,14 +86,27 @@ export default function SignupPage() {
 
   return (
     <Layout>
-      <Head><title>Sign Up — Tennis League</title></Head>
+      <Head>
+        <title>Sign Up — Tennis League</title>
+      </Head>
 
-      <div className="max-w-md mx-auto p-6 bg-white rounded shadow mt-8">
-        <h1 className="text-2xl font-bold mb-4">Create Account</h1>
+      <div className="max-w-md mx-auto p-6 bg-white rounded shadow mt-8 space-y-4">
+        <h1 className="text-2xl font-bold">Sign Up</h1>
 
-        {error && <div className="mb-4 text-red-600">{error}</div>}
+        {error && <div className="text-red-600">{error}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <label className="block">
+            <span className="font-medium">Display Name</span>
+            <input
+              type="text"
+              value={displayName}
+              onChange={e => setDisplayName(e.target.value)}
+              required
+              className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+            />
+          </label>
+
           <label className="block">
             <span className="font-medium">Email</span>
             <input
@@ -75,17 +114,7 @@ export default function SignupPage() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
-              className="mt-1 block w-full border px-3 py-2 rounded"
-            />
-          </label>
-
-          <label className="block">
-            <span className="font-medium">Display Name (optional)</span>
-            <input
-              type="text"
-              value={displayName}
-              onChange={e => setDisplayName(e.target.value)}
-              className="mt-1 block w-full border px-3 py-2 rounded"
+              className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
             />
           </label>
 
@@ -96,14 +125,25 @@ export default function SignupPage() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-              className="mt-1 block w-full border px-3 py-2 rounded"
+              className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
+            />
+          </label>
+
+          <label className="block">
+            <span className="font-medium">Confirm Password</span>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              required
+              className="mt-1 block w-full border border-gray-300 px-3 py-2 rounded"
             />
           </label>
 
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50"
+            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
           >
             {submitting ? 'Signing up…' : 'Sign Up'}
           </button>
